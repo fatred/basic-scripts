@@ -11,6 +11,6 @@ set incsearch
 set hlsearch
 
 set background=dark
-colorscheme solarized
+colorscheme desert 
 " >~/.vimrc
 
