@@ -3,8 +3,6 @@
 import paramiko
 from ciscoconfparse import CiscoConfParse
 import time
-import re
-import sys
 import os
 import argparse
 import getpass
@@ -22,17 +20,19 @@ parser.add_argument('--debug', help='Enable Debugging output', action="store_tru
 
 # DEFINE FUNCS
 
-def get_switch_conf(ip, username, password, debug=False): 
+
+def get_switch_conf(ip, username, password, debug=False):
     """
         Setup the SSH session
         params
-            ip: (string) IP address to connect to
-            username: username to login with
-            password: password for session
-            debug: (bool) be noisy about what we are doing [default false]
+            :param ip: (string) IP address to connect to
+            :param username: username to login with
+            :param password: password for session
+            :param debug: (bool) be noisy about what we are doing [default false]
             
         return 
             cisco_conf: CiscoConfParse object
+
     """
     remote_conn_pre = paramiko.SSHClient()
     remote_conn_pre.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -46,12 +46,12 @@ def get_switch_conf(ip, username, password, debug=False):
             remote_conn_pre.connect(ip, username=username, password=password, look_for_keys=False, allow_agent=False)
         except paramiko.AuthenticationException as auth_err:
             print auth_err
-            print "[E] thats twice.  UFIXURCREDSUCALLMEYEA?!?"
+            print "[E] that's twice.  UFIXURCREDSUCALLMEYEA?!?"
             exit()
     
     print "[*] SSH connection established to %s" % ip
     
-    #Get a vty on the ssh session
+    # Get a vty on the ssh session
     remote_conn = remote_conn_pre.invoke_shell()
     if debug:
         print "[D] Interactive SSH session established"
@@ -88,7 +88,7 @@ def get_switch_conf(ip, username, password, debug=False):
     
     switch_hostname = cisco_conf.find_objects(r"^hostname")[0].text[9:]
     switch_version = cisco_conf.find_objects(r"^version")[0].text[-4:]
-    print "[*] Config Parsed: %s | %s" % (switch_hostname,switch_version)
+    print "[*] Config Parsed: %s | %s" % (switch_hostname, switch_version)
     
     # return that as CiscoConfParse obj
     return cisco_conf
@@ -97,6 +97,8 @@ def get_switch_conf(ip, username, password, debug=False):
 def disable_paging(remote_conn):
     """
     Disables paging of the terminal session to get a single "page" of config output
+    :param remote_conn: paramiko object for ssh connection
+
     """
     remote_conn.send("terminal length 0\n")
     time.sleep(1)
@@ -107,13 +109,22 @@ def disable_paging(remote_conn):
 def update_in_alist(alist, key, value):
     """
     Provides function to update a value in a list 
+
+    :param alist: list object to search
+    :param key: key object to query
+    :param value: value to search for
+
     """
-    return [(k,v) if (k != key) else (key, value) for (k, v) in alist]
+    return [(k, v) if (k != key) else (key, value) for (k, v) in alist]
 
 
 def update_in_alist_inplace(alist, key, value):
     """
     Provides function to update a value in a list without re-organising the list
+    :param alist: list object to search
+    :param key: key object to query
+    :param value: value to search for
+
     """
     alist[:] = update_in_alist(alist, key, value)
 
@@ -123,7 +134,7 @@ def dump_conf_to_disk(cisco_conf, name):
     if cisco_conf.has_line_with('!'):
         # cisco_conf has entries
         cisco_conf.save_as("%s.cfg" % name)
-        print "[*] Written requested change script to %s/%s.cfg" % (os.getcwd(),name)
+        print "[*] Written requested change script to %s/%s.cfg" % (os.getcwd(), name)
     elif not cisco_conf.has_line_with('!'):
         # cisco_conf is empty
         print "[W] No changes needed"
@@ -153,14 +164,14 @@ def main():
     elif not args.debug:
         debug = False
     
-    ## default creds. BAD NETADMIN. NO BISCUIT!
+    #  default credentials. BAD NETADMIN. NO BISCUIT!
     ip = args.ip
     if not args.username:
         username = 'defaultUser'
     else:
         username = args.username
     if not args.password:
-        password = getpass.getpass('Password for %s@%s: ' % (username,ip))
+        password = getpass.getpass('Password for %s@%s: ' % (username, ip))
     else:
         password = args.password
     if args.output:
@@ -180,10 +191,10 @@ def main():
     sheet = spreadsheet.active
     sheet.title = 'Port Map'
     # add headings
-    sheet.cell(row=1,column=1).value = "interface"
-    sheet.cell(row=1,column=2).value = "dot1x|static|trunk"
-    sheet.cell(row=1,column=3).value = "port desc"
-    sheet.cell(row=1,column=4).value = "access vlan|trunk vlans"
+    sheet.cell(row=1, column=1).value = "interface"
+    sheet.cell(row=1, column=2).value = "dot1x|static|trunk"
+    sheet.cell(row=1, column=3).value = "port desc"
+    sheet.cell(row=1, column=4).value = "access vlan|trunk vlans"
     
     # get all the interface objects
     interfaces = switch_conf.find_objects(r'^interface GigabitEthernet')
@@ -191,7 +202,7 @@ def main():
     # populate the spreadsheet
     for interface in interfaces:
         # increment the total intf count
-        total_intf_count+=1
+        total_intf_count += 1
         
         # get the layout correct
         switch = interface.ordinal_list[0]
@@ -200,34 +211,34 @@ def main():
         # check if its a dot1x port
         if interface.re_search_children(r'dot1x'):
             # increment the dot1x intf count
-            dot1x_intf_count+=1
+            dot1x_intf_count += 1
             
             if debug: 
                 print "[D] Interface %s is dot1x enabled" % interface.name
-            name = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 1, interface.name)
-            type = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 2, "dot1x")
-            desc = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 3, interface.description)
-            acc_vl = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 4, interface.access_vlan)
+            add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 1, interface.name)
+            add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 2, "dot1x")
+            add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 3, interface.description)
+            add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 4, interface.access_vlan)
             
         else:
-            name = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 1, interface.name)
+            add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 1, interface.name)
             if interface.access_vlan == 0:
                 # increment trunk intf counter
-                trunk_intf_count+=1
+                trunk_intf_count += 1
                 
                 if debug: 
                     print "[D] Interface %s is trunk port" % interface.name
-                type = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 2, "trunk")
-                desc = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 3, interface.description)
-                all_vl = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 4, "all")
+                add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 2, "trunk")
+                add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 3, interface.description)
+                add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 4, "all")
             else: 
                 # increment access port counter
-                static_intf_count+=1
+                static_intf_count += 1
                 if debug:
                     print "[D] Interface %s is a static port" % interface.name
-                type = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 2, "static")
-                desc = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 3, interface.description)
-                acc_vl = add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 4, interface.access_vlan)
+                add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 2, "static")
+                add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 3, interface.description)
+                add_value_to_cell(sheet, (54+port if switch == 2 else 2+port), 4, interface.access_vlan)
     
     print "[*] %s interfaces" % total_intf_count
     print "[*]\t %s dot1x interfaces" % dot1x_intf_count
